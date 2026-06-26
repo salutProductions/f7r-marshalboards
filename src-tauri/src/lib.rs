@@ -9,7 +9,6 @@ use tauri::{
 #[serde(rename_all = "camelCase")]
 struct AppConfig {
     websocket_url: String,
-    browser_url: String,
     default_width: f64,
     default_height: f64,
     always_on_top: bool,
@@ -19,7 +18,6 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             websocket_url: "wss://f7livemanager.salutproductionscontact.workers.dev/ws".into(),
-            browser_url: "https://www.salutproductions.com/support-me".into(),
             default_width: 250.0,
             default_height: 150.0,
             always_on_top: true,
@@ -62,9 +60,9 @@ fn open_config_folder_impl(app: &AppHandle) -> Result<(), String> {
     opener::open(dir).map_err(|error| error.to_string())
 }
 
-fn open_browser_url_impl(app: &AppHandle) -> Result<(), String> {
-    let config = ensure_config(app)?;
-    opener::open(config.browser_url).map_err(|error| error.to_string())
+fn open_browser_url_impl() -> Result<(), String> {
+    opener::open("https://github.com/salutproductions/f7r-marshalboards")
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -79,9 +77,8 @@ fn open_config(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 fn show_context_menu(window: tauri::Window) -> Result<(), String> {
-    let open_browser =
-        MenuItem::with_id(&window, "support", "Support the developer", true, None::<&str>)
-            .map_err(|error| error.to_string())?;
+    let open_browser = MenuItem::with_id(&window, "repo", "GitHub Repository", true, None::<&str>)
+        .map_err(|error| error.to_string())?;
 
     let open_config_folder = MenuItem::with_id(
         &window,
@@ -131,8 +128,8 @@ pub fn run() {
             load_config
         ])
         .on_menu_event(|app, event| match event.id().as_ref() {
-            "support" => {
-                if let Err(error) = open_browser_url_impl(app) {
+            "repo" => {
+                if let Err(error) = open_browser_url_impl() {
                     eprintln!("Failed to open browser URL: {error}");
                 }
             }

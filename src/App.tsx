@@ -9,11 +9,15 @@ const SIGNAL_LABELS: Partial<Record<Signal, string>> = {
   SC: "SC",
   FCY: "FCY",
   PIT_CLOSED: "PIT CLOSED",
-  STARTING_SOON: "TEST",
+  STARTING_SOON: "STARTING SOON",
 };
 
 function App() {
   const [signal, setSignal] = useState<Signal>("NOTHING");
+  const [retryInSeconds, setRetryInSeconds] = useState<number | null>(null);
+  const [backgroundMode, setBackgroundMode] = useState<"transparent" | "black">(
+    "transparent",
+  );
   const [animationKey, setAnimationKey] = useState(0);
   const currentWindow = getCurrentWindow();
 
@@ -43,9 +47,19 @@ function App() {
           return;
         }
 
-        disconnect = connectSocket(config.websocketUrl, (nextSignal) => {
-          setSignal(nextSignal);
-          setAnimationKey((current) => current + 1);
+        disconnect = connectSocket(config.websocketUrl, {
+          onSignal(nextSignal) {
+            setSignal(nextSignal);
+            setAnimationKey((current) => current + 1);
+          },
+          onStatus(status) {
+            if (status.type === "connected") {
+              setRetryInSeconds(null);
+              return;
+            }
+
+            setRetryInSeconds(status.retryInSeconds);
+          },
         });
       })
       .catch((error) => {
@@ -58,16 +72,38 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    function handleKeyboardShortcut(event: KeyboardEvent) {
+      if (event.altKey && event.shiftKey && event.key.toLowerCase() === "t") {
+        event.preventDefault();
+        setBackgroundMode((current) =>
+          current === "transparent" ? "black" : "transparent",
+        );
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyboardShortcut);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyboardShortcut);
+    };
+  }, []);
+
+  const liveText =
+    retryInSeconds === null ? SIGNAL_LABELS[signal] : `DSC-${retryInSeconds}`;
+
   return (
     <main
       key={animationKey}
       className="signal"
       onContextMenu={handleContextMenu}
       onMouseDown={handleDragStart}
+      data-background={backgroundMode}
+      data-connection={retryInSeconds === null ? "connected" : "disconnected"}
       data-signal={signal}
-      aria-label={signal}
+      aria-label={liveText ?? signal}
     >
-      {SIGNAL_LABELS[signal] && <span>{SIGNAL_LABELS[signal]}</span>}
+      {liveText && <span>{liveText}</span>}
     </main>
   );
 }

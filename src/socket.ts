@@ -14,6 +14,15 @@ type Message = {
   status?: string;
 };
 
+export type SocketStatus =
+  | { type: "connected" }
+  | { type: "reconnecting"; retryInSeconds: number };
+
+type SocketHandlers = {
+  onSignal: (signal: Signal) => void;
+  onStatus: (status: SocketStatus) => void;
+};
+
 const SIGNALS = [
   "NOTHING",
   "GREEN",
@@ -28,15 +37,49 @@ const SIGNALS = [
 
 const VALID_SIGNALS = new Set<Signal>(SIGNALS);
 
-export function connectSocket(url: string, onSignal: (signal: Signal) => void) {
+export function connectSocket(url: string, handlers: SocketHandlers) {
   let socket: WebSocket | undefined;
+  let reconnectTimer: number | undefined;
+  let countdownTimer: number | undefined;
   let stopped = false;
   let retryMs = 1000;
+
+  const clearReconnectTimers = () => {
+    window.clearTimeout(reconnectTimer);
+    window.clearInterval(countdownTimer);
+    reconnectTimer = undefined;
+    countdownTimer = undefined;
+  };
+
+  const scheduleReconnect = () => {
+    const retryAt = Date.now() + retryMs;
+    let lastReportedSeconds = -1;
+
+    const reportCountdown = () => {
+      const retryInSeconds = Math.max(0, Math.ceil((retryAt - Date.now()) / 1000));
+
+      if (retryInSeconds !== lastReportedSeconds) {
+        lastReportedSeconds = retryInSeconds;
+        handlers.onStatus({ type: "reconnecting", retryInSeconds });
+      }
+    };
+
+    reportCountdown();
+    countdownTimer = window.setInterval(reportCountdown, 250);
+    reconnectTimer = window.setTimeout(() => {
+      clearReconnectTimers();
+      connect();
+    }, retryMs);
+
+    retryMs = Math.min(retryMs * 1.5, 10000);
+  };
 
   const connect = () => {
     socket = new WebSocket(url);
     socket.onopen = () => {
+      clearReconnectTimers();
       retryMs = 1000;
+      handlers.onStatus({ type: "connected" });
     };
 
     socket.onmessage = (event) => {
@@ -47,19 +90,18 @@ export function connectSocket(url: string, onSignal: (signal: Signal) => void) {
       }
 
       if (message.type === "IDLE" || message.status === "NOTHING") {
-        onSignal("NOTHING");
+        handlers.onSignal("NOTHING");
         return;
       }
 
       if (message.type === "RACE_CONTROL" && isSignal(message.status)) {
-        onSignal(message.status);
+        handlers.onSignal(message.status);
       }
     };
 
     socket.onclose = () => {
       if (!stopped) {
-        window.setTimeout(connect, retryMs);
-        retryMs = Math.min(retryMs * 1.5, 10000);
+        scheduleReconnect();
       }
     };
 
@@ -72,6 +114,7 @@ export function connectSocket(url: string, onSignal: (signal: Signal) => void) {
 
   return () => {
     stopped = true;
+    clearReconnectTimers();
     socket?.close();
   };
 }

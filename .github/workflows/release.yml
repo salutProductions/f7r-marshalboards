@@ -33,8 +33,8 @@ jobs:
       - name: Create Release and Upload Portable EXE
         uses: softprops/action-gh-release@v2
         with:
-          name: "App v${{ github.ref_name }}"
-          body: "Standalone portable Windows executable. No installation required."
+          name: "v${{ github.ref_name }}"
+          body: ""
           draft: false
           prerelease: false
           files: |
