@@ -2,6 +2,7 @@
   "name": "f7r-marshalboards",
   "private": true,
   "version": "0.1.0",
+  "description": "Compact LMU marshal board overlay for F7R race control.",
   "type": "module",
   "scripts": {
     "dev": "vite",
