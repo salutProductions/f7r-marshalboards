@@ -28,8 +28,8 @@ Originally made for F7R's Le Mans Ultimate division, made to be compatible with 
   Download the Windows portable executable (~8MB) from the [Releases Page](https://github.com/salutProductions/f7r-marshalboards/releases).
 
   Linux Support: *Coming Soon*
-  <hr>
-  #### 👩‍💻 Manual Source Building
+  <hr/>
+  ### 👩‍💻 Manual Source Building
   
   Source development & building requires:
    
