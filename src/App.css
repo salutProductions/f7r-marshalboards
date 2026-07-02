@@ -94,6 +94,7 @@ body,
 
 .signal[data-signal="CHEQUERED_FLAG"] {
     animation: chequered-flag-blink 5s steps(1, end) infinite;
+    background-size: 20vmin 20vmin;
 }
 
 .signal[data-signal="GT3_Q_GREEN"],
