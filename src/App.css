@@ -8,6 +8,7 @@
 :root {
     --edge-size: clamp(0.75rem, 8vmin, 6rem);
     --flag-text-size: clamp(2rem, 42vmin, 18rem);
+    --chequer-size: 20vmin;
     --green: #00ff7f;
     --yellow: #ffd400;
     --red: #ff001f;
@@ -94,7 +95,8 @@ body,
 
 .signal[data-signal="CHEQUERED_FLAG"] {
     animation: chequered-flag-blink 5s steps(1, end) infinite;
-    background-size: 20vmin 20vmin;
+    background-size: var(--chequer-size) var(--chequer-size);
+    background-position: center center;
 }
 
 .signal[data-signal="GT3_Q_GREEN"],
@@ -190,7 +192,6 @@ body,
 @keyframes chequered-flag-blink {
     0%, 10%, 20%, 30%, 40%, 50%, 60%, 70%, 80%, 90% {
         background-image: conic-gradient(var(--black) 0.25turn, var(--white) 0.25turn 0.5turn, var(--black) 0.5turn 0.75turn, var(--white) 0.75turn);
-        background-size: 100px 100px;
         background-color: var(--black);
     }
     5%, 15%, 25%, 35%, 45%, 55%, 65%, 75%, 85%, 95%, 100% {
