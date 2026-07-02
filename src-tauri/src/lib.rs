@@ -110,6 +110,8 @@ fn show_context_menu(window: tauri::Window) -> Result<(), String> {
 
     let gt3_label = category_label(config.car_category, CarCategory::GT3, "GT3");
     let hypercar_label = category_label(config.car_category, CarCategory::Hypercar, "Hypercar");
+    
+    let lmp2_label = category_label(config.car_category, CarCategory::LMP2, "LMP2");
 
     let gt3 = MenuItem::with_id(&window, "set-category-gt3", gt3_label, true, None::<&str>)
         .map_err(|error| error.to_string())?;
@@ -140,7 +142,7 @@ fn show_context_menu(window: tauri::Window) -> Result<(), String> {
 
     let menu = Menu::with_items(
         &window,
-        &[&gt3, &hypercar, &open_browser, &open_config_folder, &exit],
+        &[&gt3, &hypercar, &lmp2, &open_browser, &open_config_folder, &exit],
     )
         .map_err(|error| error.to_string())?;
 
@@ -192,6 +194,11 @@ pub fn run() {
             }
             "set-category-hypercar" => {
                 if let Err(error) = set_car_category_impl(app, CarCategory::Hypercar) {
+                    eprintln!("Failed to set car category: {error}");
+                }
+            }
+            "set-category-lmp2" => {
+                if let Err(error) = set_car_category_impl(app, CarCategory::LMP2) {
                     eprintln!("Failed to set car category: {error}");
                 }
             }
