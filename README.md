@@ -29,7 +29,7 @@ Originally made for F7R's Le Mans Ultimate division, made to be compatible with 
 
   Linux Support: *Coming Soon*
   <hr/>
-  ### 👩‍💻 Manual Source Building
+  ### Manual Source Building
   
   Source development & building requires:
    
