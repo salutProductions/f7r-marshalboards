@@ -207,6 +207,6 @@ body,
     }
 
     50.001%, 100% {
-        background: var(--idle-background);
+        background: var(--black);
     }
 }
