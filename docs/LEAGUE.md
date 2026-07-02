@@ -22,19 +22,20 @@ A payload involves two types of variables:
 | Variable | Accepted Types |
 | --- | --- |
 | `type` | `IDLE`, `RACE_CONTROL` |
-| `status` | `GREEN`, `YELLOW`, `RED`, `SC`, `SC_IN`, `FCY`, `PIT_CLOSED`, `STARTING_SOON`, `NOTHING`|
+| `status` | `GREEN`, `YELLOW`, `RED`, `SC`, `SC_IN`, `FCY`, `PIT_CLOSED`, `STARTING_SOON`, `NOTHING`, | `CHEQUERED_FLAG` |
 
 The `status` variable describes the flags. Their behaviour in the app is as following:
 | Status | Behaviour |
 | --- | --- |
-| `GREEN` |A green background blinking 10 times, before going to black |
-| `YELLOW` |A yellow background, blinking for 10 seconds, before going to black|
+| `GREEN` | A green background blinking 10 times, before going to black |
+| `YELLOW` | A yellow background, blinking for 10 seconds, before going to black|
 | `RED` | A red background that blinks indefinetly, until a new payload is received|
 | `SC`| The initials "SC", with a yellow border that blinks indefinetly, until a new payload is received.|
 | `SC_IN`|A yellow border that blinks indefinetly, until a new payload is received.|
 | `FCY`| The initials "FCY", with a yellow border that blinks indefinetly, until a new payload is received.|
 | `PIT_CLOSED`| The phrase "PIT CLOSED", with a red border that blinks indefinetly, until a new payload is received.|
 | `STARTING_SOON` | The phrase "TEST", with a white border, allowing drivers to confirm connectivity.
+| `CHEQUERED_FLAG` | A flag with black and white squares that blinks infinetly, until a new payload is received.
 
 Examples of payloads:
 ###### A FCY payload
