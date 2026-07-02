@@ -2,21 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
 use tauri::{
     menu::{ContextMenu, Menu, MenuItem},
-    AppHandle, Emitter, Manager,
+    AppHandle, Manager,
 };
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-enum CarCategory {
-    GT3,
-    Hypercar,
-}
-
-impl Default for CarCategory {
-    fn default() -> Self {
-        Self::GT3
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -25,8 +12,6 @@ struct AppConfig {
     default_width: f64,
     default_height: f64,
     always_on_top: bool,
-    #[serde(default)]
-    car_category: CarCategory,
 }
 
 impl Default for AppConfig {
@@ -36,7 +21,6 @@ impl Default for AppConfig {
             default_width: 250.0,
             default_height: 150.0,
             always_on_top: true,
-            car_category: CarCategory::GT3,
         }
     }
 }
@@ -71,11 +55,6 @@ fn ensure_config(app: &AppHandle) -> Result<AppConfig, String> {
     serde_json::from_str(&text).map_err(|error| error.to_string())
 }
 
-fn save_config(app: &AppHandle, config: &AppConfig) -> Result<(), String> {
-    let text = serde_json::to_string_pretty(config).map_err(|error| error.to_string())?;
-    fs::write(config_path(app)?, text).map_err(|error| error.to_string())
-}
-
 fn open_config_folder_impl(app: &AppHandle) -> Result<(), String> {
     let dir = config_dir(app)?;
     opener::open(dir).map_err(|error| error.to_string())
@@ -83,14 +62,6 @@ fn open_config_folder_impl(app: &AppHandle) -> Result<(), String> {
 
 fn open_browser_url_impl() -> Result<(), String> {
     opener::open("https://github.com/salutproductions/f7r-marshalboards")
-        .map_err(|error| error.to_string())
-}
-
-fn set_car_category_impl(app: &AppHandle, car_category: CarCategory) -> Result<(), String> {
-    let mut config = ensure_config(app)?;
-    config.car_category = car_category;
-    save_config(app, &config)?;
-    app.emit("car-category-changed", car_category)
         .map_err(|error| error.to_string())
 }
 
@@ -106,26 +77,6 @@ fn open_config(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 fn show_context_menu(window: tauri::Window) -> Result<(), String> {
-    let config = ensure_config(window.app_handle())?;
-    let gt3_label = category_label(config.car_category, CarCategory::GT3, "GT3");
-    let hypercar_label = category_label(config.car_category, CarCategory::Hypercar, "Hypercar");
-    let lmp2_label = category_label(config.car_category, CarCategory::LMP2, "LMP2");
-
-    let gt3 = MenuItem::with_id(&window, "set-category-gt3", gt3_label, true, None::<&str>)
-        .map_err(|error| error.to_string())?;
-
-    let hypercar = MenuItem::with_id(
-        &window,
-        "set-category-hypercar",
-        hypercar_label,
-        true,
-        None::<&str>,
-    )
-    .map_err(|error| error.to_string())?;
-
-    let lmp2 = MenuItem::with_id(&window, "set-category-lmp2", lmp2_label, true, None::<&str>)
-        .map_err(|error| error.to_string())?;
-
     let open_browser = MenuItem::with_id(&window, "repo", "GitHub Repository", true, None::<&str>)
         .map_err(|error| error.to_string())?;
 
@@ -141,23 +92,12 @@ fn show_context_menu(window: tauri::Window) -> Result<(), String> {
     let exit = MenuItem::with_id(&window, "exit", "Exit", true, None::<&str>)
         .map_err(|error| error.to_string())?;
 
-    let menu = Menu::with_items(
-        &window,
-        &[&gt3, &hypercar, &lmp2, &open_browser, &open_config_folder, &exit],
-    )
+    let menu = Menu::with_items(&window, &[&open_browser, &open_config_folder, &exit])
         .map_err(|error| error.to_string())?;
 
     menu.popup(window).map_err(|error| error.to_string())?;
 
     Ok(())
-}
-
-fn category_label(current: CarCategory, category: CarCategory, label: &str) -> String {
-    if current == category {
-        format!("[x] {label}")
-    } else {
-        label.to_string()
-    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -188,21 +128,6 @@ pub fn run() {
             load_config
         ])
         .on_menu_event(|app, event| match event.id().as_ref() {
-            "set-category-gt3" => {
-                if let Err(error) = set_car_category_impl(app, CarCategory::GT3) {
-                    eprintln!("Failed to set car category: {error}");
-                }
-            }
-            "set-category-hypercar" => {
-                if let Err(error) = set_car_category_impl(app, CarCategory::Hypercar) {
-                    eprintln!("Failed to set car category: {error}");
-                }
-            }
-            "set-category-lmp2" => {
-                if let Err(error) = set_car_category_impl(app, CarCategory::LMP2) {
-                    eprintln!("Failed to set car category: {error}");
-                }
-            }
             "repo" => {
                 if let Err(error) = open_browser_url_impl() {
                     eprintln!("Failed to open browser URL: {error}");
