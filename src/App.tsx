@@ -1,8 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
-import { loadConfig } from "./config";
+import { type CarCategory, loadConfig } from "./config";
 import { connectSocket, type Signal } from "./socket";
 
 const SIGNAL_LABELS: Partial<Record<Signal, string>> = {
@@ -16,6 +17,13 @@ const SIGNAL_LABELS: Partial<Record<Signal, string>> = {
   HYC_Q_GREEN: "HYC - GREEN",
 };
 
+const CATEGORY_PREFIXES: Record<CarCategory, string> = {
+  GT3: "GT3_",
+  HYPERCAR: "HYC_",
+};
+
+const CLASS_SIGNAL_PREFIXES = Object.values(CATEGORY_PREFIXES);
+
 function App() {
   const [signal, setSignal] = useState<Signal>("NOTHING");
   const [retryInSeconds, setRetryInSeconds] = useState<number | null>(null);
@@ -23,6 +31,7 @@ function App() {
     "transparent",
   );
   const [animationKey, setAnimationKey] = useState(0);
+  const categoryRef = useRef<CarCategory>("GT3");
   const currentWindow = getCurrentWindow();
 
   function handleDragStart(event: React.MouseEvent<HTMLElement>) {
@@ -51,9 +60,11 @@ function App() {
           return;
         }
 
+        categoryRef.current = config.carCategory;
+
         disconnect = connectSocket(config.websocketUrl, {
           onSignal(nextSignal) {
-            setSignal(nextSignal);
+            setSignal(filterSignalForCategory(nextSignal, categoryRef.current));
             setAnimationKey((current) => current + 1);
           },
           onStatus(status) {
@@ -73,6 +84,22 @@ function App() {
     return () => {
       cancelled = true;
       disconnect?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    listen<CarCategory>("car-category-changed", (event) => {
+      categoryRef.current = event.payload;
+      setSignal("NOTHING");
+      setAnimationKey((current) => current + 1);
+    }).then((cleanup) => {
+      unlisten = cleanup;
+    });
+
+    return () => {
+      unlisten?.();
     };
   }, []);
 
@@ -110,6 +137,22 @@ function App() {
       {liveText && <span>{liveText}</span>}
     </main>
   );
+}
+
+function filterSignalForCategory(signal: Signal, category: CarCategory): Signal {
+  if (!isClassSignal(signal)) {
+    return signal;
+  }
+
+  if (signal.startsWith(CATEGORY_PREFIXES[category])) {
+    return signal;
+  }
+
+  return "NOTHING";
+}
+
+function isClassSignal(signal: Signal) {
+  return CLASS_SIGNAL_PREFIXES.some((prefix) => signal.startsWith(prefix));
 }
 
 export default App;
