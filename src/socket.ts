@@ -7,6 +7,11 @@ export type Signal =
   | "SC"
   | "SC_IN"
   | "PIT_CLOSED"
+  | "CHEQUERED_FLAG"
+  | "GT3_Q_GREEN"
+  | "GT3_Q_CHQ"
+  | "HYC_Q_GREEN"
+  | "HYC_Q_CHQ"
   | "STARTING_SOON";
 
 type Message = {
@@ -32,6 +37,11 @@ const SIGNALS = [
   "SC",
   "SC_IN",
   "PIT_CLOSED",
+  "CHEQUERED_FLAG",
+  "GT3_Q_GREEN",
+  "GT3_Q_CHQ",
+  "HYC_Q_GREEN",
+  "HYC_Q_CHQ",
   "STARTING_SOON",
 ] as const satisfies readonly Signal[];
 
