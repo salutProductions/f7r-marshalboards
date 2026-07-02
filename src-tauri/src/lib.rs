@@ -107,8 +107,10 @@ fn open_config(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 fn show_context_menu(window: tauri::Window) -> Result<(), String> {
     let config = ensure_config(window.app_handle())?;
+
     let gt3_label = category_label(config.car_category, CarCategory::GT3, "GT3");
     let hypercar_label = category_label(config.car_category, CarCategory::Hypercar, "Hypercar");
+    
     let lmp2_label = category_label(config.car_category, CarCategory::LMP2, "LMP2");
 
     let gt3 = MenuItem::with_id(&window, "set-category-gt3", gt3_label, true, None::<&str>)
@@ -122,9 +124,6 @@ fn show_context_menu(window: tauri::Window) -> Result<(), String> {
         None::<&str>,
     )
     .map_err(|error| error.to_string())?;
-
-    let lmp2 = MenuItem::with_id(&window, "set-category-lmp2", lmp2_label, true, None::<&str>)
-        .map_err(|error| error.to_string())?;
 
     let open_browser = MenuItem::with_id(&window, "repo", "GitHub Repository", true, None::<&str>)
         .map_err(|error| error.to_string())?;
