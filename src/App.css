@@ -107,15 +107,11 @@ body,
 
 .signal[data-signal="GT3_Q_CHQ"],
 .signal[data-signal="HYC_Q_CHQ"] {
-    animation: chequered-edge-blink 1s steps(1, end) infinite;
     border: var(--edge-size) solid transparent;
     box-sizing: border-box;
     box-shadow: none;
-    background:
-        linear-gradient(var(--black) 0 0) padding-box,
-        conic-gradient(var(--black) .25turn, var(--white) 0 .5turn, var(--black) 0 .75turn, var(--white) 0) 0 0 / var(--chequer-size) var(--chequer-size);
+    animation: chequered-edge-blink 1s steps(1, end) infinite;
 }
-
 
 .signal[data-connection="disconnected"] {
     animation: none;
@@ -204,6 +200,12 @@ body,
 }
 
 @keyframes chequered-edge-blink {
+    0%, 50% {
+        background:
+            linear-gradient(var(--idle-background) 0 0) padding-box,
+            conic-gradient(var(--black) .25turn, var(--white) 0 .5turn, var(--black) 0 .75turn, var(--white) 0) 0 0 / var(--chequer-size) var(--chequer-size) border-box;
+    }
+
     50.001%, 100% {
         background: var(--idle-background);
     }
