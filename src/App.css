@@ -107,12 +107,15 @@ body,
 
 .signal[data-signal="GT3_Q_CHQ"],
 .signal[data-signal="HYC_Q_CHQ"] {
-    animation: chequered-border-blink 1s steps(1, end) infinite;
+    animation: chequered-edge-blink 1s steps(1, end) infinite;
     border: var(--edge-size) solid transparent;
     box-sizing: border-box;
     box-shadow: none;
-    background: var(--idle-background) padding-box, conic-gradient(var(--black) 0.25turn, var(--white) 0.25turn 0.5turn, var(--black) 0.5turn 0.75turn, var(--white) 0.75turn) border-box;
+    background:
+        linear-gradient(var(--black) 0 0) padding-box,
+        conic-gradient(var(--black) .25turn, var(--white) 0 .5turn, var(--black) 0 .75turn, var(--white) 0) 0 0 / var(--chequer-size) var(--chequer-size);
 }
+
 
 .signal[data-connection="disconnected"] {
     animation: none;
@@ -200,13 +203,8 @@ body,
     }
 }
 
-@keyframes chequered-border-blink {
-    0%, 50% {
-        border-color: transparent;
-        background: var(--idle-background) padding-box, conic-gradient(var(--black) 0.25turn, var(--white) 0.25turn 0.5turn, var(--black) 0.5turn 0.75turn, var(--white) 0.75turn) border-box;
-    }
+@keyframes chequered-edge-blink {
     50.001%, 100% {
-        border-color: transparent;
         background: var(--idle-background);
     }
 }
