@@ -201,9 +201,18 @@ body,
 
 @keyframes chequered-edge-blink {
     0%, 50% {
-        background:
-            linear-gradient(var(--idle-background) 0 0) padding-box,
-            conic-gradient(var(--black) .25turn, var(--white) 0 .5turn, var(--black) 0 .75turn, var(--white) 0) 0 0 / var(--chequer-size) var(--chequer-size) border-box;
+        background-image:
+            linear-gradient(var(--black) 0 0),
+            conic-gradient(var(--black) .25turn, var(--white) 0 .5turn, var(--black) 0 .75turn, var(--white) 0);
+        background-size:
+            auto,
+            var(--chequer-size) var(--chequer-size);
+        background-origin:
+            padding-box,
+            border-box;
+        background-clip:
+            padding-box,
+            border-box;
     }
 
     50.001%, 100% {
