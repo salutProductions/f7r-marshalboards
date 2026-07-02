@@ -93,8 +93,7 @@ body,
 }
 
 .signal[data-signal="CHEQUERED_FLAG"] {
-    animation: chequered-flag-blink 1s steps(1, end) infinite;
-    box-shadow: inset 0 0 0 var(--edge-size) var(--red);
+    animation: chequered-flag-blink 5s steps(1, end) infinite;
 }
 
 .signal[data-connection="disconnected"] {
