@@ -3,7 +3,7 @@ name: "Publish Portable Windows EXE"
 on:
   push:
     tags:
-      - "v*" # Triggers when you push a version tag like v1.0.0
+      - "v*"
 
 jobs:
   publish-windows-portable:
@@ -22,20 +22,26 @@ jobs:
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: install frontend dependencies
-        run: npm install # Change to yarn install or pnpm install if needed
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
-      # This runs the build but avoids the heavy installer-bundling phase
+      - name: install frontend dependencies
+        run: npm install
+
       - name: Build Tauri Raw Binary
         run: npm run tauri build -- --no-bundle
 
-      # Creates the GitHub Release and automatically uploads the standalone .exe
       - name: Create Release and Upload Portable EXE
         uses: softprops/action-gh-release@v2
         with:
           name: "v${{ github.ref_name }}"
-          body: ""
-          draft: false
-          prerelease: false
           files: |
             src-tauri/target/release/*.exe
