@@ -14,34 +14,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: setup node
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
+          cache: npm
 
-      - name: install Rust stable
+      - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache cargo
-        uses: actions/cache@v4
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            src-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          workspaces: src-tauri
 
-      - name: install frontend dependencies
-        run: npm install
+      - name: Install frontend dependencies
+        run: npm ci
 
-      - name: Build Tauri Raw Binary
+      - name: Build Tauri raw binary
         run: npm run tauri build -- --no-bundle
 
-      - name: Create Release and Upload Portable EXE
+      - name: Create release and upload portable EXE
         uses: softprops/action-gh-release@v2
         with:
-          name: "v${{ github.ref_name }}"
+          name: ${{ github.ref_name }}
           files: |
             src-tauri/target/release/*.exe
