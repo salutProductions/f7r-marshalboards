@@ -18,8 +18,8 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             websocket_url: "wss://f7livemanager.salutproductionscontact.workers.dev/ws".into(),
-            default_width: 250.0,
-            default_height: 150.0,
+            default_width: 220.0,
+            default_height: 90.0,
             always_on_top: true,
         }
     }
