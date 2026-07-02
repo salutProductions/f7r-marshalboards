@@ -204,15 +204,9 @@ body,
         background-image:
             linear-gradient(var(--black) 0 0),
             conic-gradient(var(--black) .25turn, var(--white) 0 .5turn, var(--black) 0 .75turn, var(--white) 0);
-        background-size:
-            auto,
-            var(--chequer-size) var(--chequer-size);
-        background-origin:
-            padding-box,
-            border-box;
-        background-clip:
-            padding-box,
-            border-box;
+        background-size: auto, var(--chequer-size) var(--chequer-size);
+        background-origin: padding-box, border-box;
+        background-clip: padding-box, border-box;
     }
 
     50.001%, 100% {
