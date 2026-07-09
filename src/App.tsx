@@ -10,10 +10,14 @@ const SIGNAL_LABELS: Partial<Record<Signal, string>> = {
   FCY: "FCY",
   PIT_CLOSED: "PIT CLOSED",
   STARTING_SOON: "STARTING SOON",
-  GT3_Q_CHQ: "GT3 - CHQ",
-  HYC_Q_CHQ: "HYC - CHQ",
-  GT3_Q_GREEN: "GT3 - GREEN",
-  HYC_Q_GREEN: "HYC - GREEN",
+  GT3_Q_CHQ: "GT3",
+  HYC_Q_CHQ: "HYC",
+  GT3_Q_GREEN: "GT3",
+  HYC_Q_GREEN: "HYC",
+  LMP2_Q_CHQ: "LMP2",
+  LMP2_Q_GREEN: "LMP2",
+  LMP3_Q_CHQ: "LMP3",
+  LMP3_Q_GREEN: "LMP3",
 };
 
 function App() {

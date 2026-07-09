@@ -12,6 +12,10 @@ export type Signal =
   | "GT3_Q_CHQ"
   | "HYC_Q_GREEN"
   | "HYC_Q_CHQ"
+  | "LMP2_Q_GREEN"
+  | "LMP2_Q_CHQ"
+  | "LMP3_Q_GREEN"
+  | "LMP3_Q_CHQ"
   | "STARTING_SOON";
 
 type Message = {
@@ -42,6 +46,10 @@ const SIGNALS = [
   "GT3_Q_CHQ",
   "HYC_Q_GREEN",
   "HYC_Q_CHQ",
+  "LMP2_Q_GREEN",
+  "LMP2_Q_CHQ",
+  "LMP3_Q_GREEN",
+  "LMP3_Q_CHQ",
   "STARTING_SOON",
 ] as const satisfies readonly Signal[];
 

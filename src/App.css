@@ -100,13 +100,17 @@ body,
 }
 
 .signal[data-signal="GT3_Q_GREEN"],
-.signal[data-signal="HYC_Q_GREEN"] {
+.signal[data-signal="HYC_Q_GREEN"],
+.signal[data-signal="LMP2_Q_GREEN"],
+.signal[data-signal="LMP3_Q_GREEN"] {
     animation: green-edge-blink 1s steps(1, end) infinite;
     box-shadow: inset 0 0 0 var(--edge-size) var(--green);
 }
 
 .signal[data-signal="GT3_Q_CHQ"],
-.signal[data-signal="HYC_Q_CHQ"] {
+.signal[data-signal="HYC_Q_CHQ"],
+.signal[data-signal="LMP2_Q_CHQ"],
+.signal[data-signal="LMP3_Q_CHQ"] {
     border: var(--edge-size) solid transparent;
     box-sizing: border-box;
     box-shadow: none;
