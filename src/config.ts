@@ -5,6 +5,7 @@ export type AppConfig = {
   defaultWidth: number;
   defaultHeight: number;
   alwaysOnTop: boolean;
+  roundedCorners: boolean;
 };
 
 export async function loadConfig() {

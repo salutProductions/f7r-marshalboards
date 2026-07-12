@@ -16,7 +16,11 @@ export type Signal =
   | "LMP2_Q_CHQ"
   | "LMP3_Q_GREEN"
   | "LMP3_Q_CHQ"
-  | "STARTING_SOON";
+  | "STARTING_SOON"
+  | "S1_Y"
+  | "S2_Y"
+  | "S3_Y"
+  | "UNLAP";
 
 type Message = {
   type?: string;
@@ -31,6 +35,11 @@ type SocketHandlers = {
   onSignal: (signal: Signal) => void;
   onStatus: (status: SocketStatus) => void;
 };
+
+const INITIAL_RETRY_MS = 1000;
+const MAX_RETRY_MS = 10000;
+const SOCKET_REFRESH_MS = 30000;
+const REFRESH_CONNECT_TIMEOUT_MS = 5000;
 
 const SIGNALS = [
   "NOTHING",
@@ -51,16 +60,22 @@ const SIGNALS = [
   "LMP3_Q_GREEN",
   "LMP3_Q_CHQ",
   "STARTING_SOON",
+  "S1_Y",
+  "S2_Y",
+  "S3_Y",
+  "UNLAP",
 ] as const satisfies readonly Signal[];
 
 const VALID_SIGNALS = new Set<Signal>(SIGNALS);
 
 export function connectSocket(url: string, handlers: SocketHandlers) {
-  let socket: WebSocket | undefined;
+  const sockets = new Set<WebSocket>();
+  let activeSocket: WebSocket | undefined;
   let reconnectTimer: number | undefined;
   let countdownTimer: number | undefined;
+  let refreshTimer: number | undefined;
   let stopped = false;
-  let retryMs = 1000;
+  let retryMs = INITIAL_RETRY_MS;
 
   const clearReconnectTimers = () => {
     window.clearTimeout(reconnectTimer);
@@ -69,7 +84,18 @@ export function connectSocket(url: string, handlers: SocketHandlers) {
     countdownTimer = undefined;
   };
 
+  const clearRefreshTimer = () => {
+    window.clearTimeout(refreshTimer);
+    refreshTimer = undefined;
+  };
+
   const scheduleReconnect = () => {
+    if (reconnectTimer !== undefined || stopped) {
+      return;
+    }
+
+    clearRefreshTimer();
+
     const retryAt = Date.now() + retryMs;
     let lastReportedSeconds = -1;
 
@@ -86,60 +112,153 @@ export function connectSocket(url: string, handlers: SocketHandlers) {
     countdownTimer = window.setInterval(reportCountdown, 250);
     reconnectTimer = window.setTimeout(() => {
       clearReconnectTimers();
-      connect();
+      connect("primary");
     }, retryMs);
 
-    retryMs = Math.min(retryMs * 1.5, 10000);
+    retryMs = Math.min(retryMs * 1.5, MAX_RETRY_MS);
   };
 
-  const connect = () => {
-    socket = new WebSocket(url);
+  const scheduleRefresh = () => {
+    if (refreshTimer !== undefined || stopped) {
+      return;
+    }
+
+    refreshTimer = window.setTimeout(() => {
+      clearRefreshTimer();
+
+      if (!activeSocket || activeSocket.readyState !== WebSocket.OPEN) {
+        activeSocket?.close();
+        activeSocket = undefined;
+        scheduleReconnect();
+        return;
+      }
+
+      connect("refresh");
+    }, SOCKET_REFRESH_MS);
+  };
+
+  const handleMessage = (raw: unknown) => {
+    const message = parseMessage(raw);
+
+    if (!message) {
+      return;
+    }
+
+    if (message.type === "IDLE" || message.status === "NOTHING") {
+      handlers.onSignal("NOTHING");
+      return;
+    }
+
+    if (message.type === "RACE_CONTROL" && isSignal(message.status)) {
+      handlers.onSignal(message.status);
+    }
+  };
+
+  const connect = (mode: "primary" | "refresh") => {
+    const socket = new WebSocket(url);
+    let refreshConnectTimer: number | undefined;
+    sockets.add(socket);
+
+    const clearRefreshConnectTimer = () => {
+      window.clearTimeout(refreshConnectTimer);
+      refreshConnectTimer = undefined;
+    };
+
+    if (mode === "refresh") {
+      refreshConnectTimer = window.setTimeout(() => {
+        socket.close();
+      }, REFRESH_CONNECT_TIMEOUT_MS);
+    }
+
     socket.onopen = () => {
       clearReconnectTimers();
-      retryMs = 1000;
+      clearRefreshConnectTimer();
+
+      if (stopped) {
+        socket.close();
+        return;
+      }
+
+      retryMs = INITIAL_RETRY_MS;
+
+      const previousSocket = activeSocket;
+      activeSocket = socket;
+
+      if (previousSocket && previousSocket !== socket) {
+        previousSocket.close(1000, "refresh");
+      }
+
+      scheduleRefresh();
       handlers.onStatus({ type: "connected" });
     };
 
     socket.onmessage = (event) => {
-      const message = parseMessage(event.data);
-
-      if (!message) {
-        return;
-      }
-
-      if (message.type === "IDLE" || message.status === "NOTHING") {
-        handlers.onSignal("NOTHING");
-        return;
-      }
-
-      if (message.type === "RACE_CONTROL" && isSignal(message.status)) {
-        handlers.onSignal(message.status);
+      if (activeSocket === socket) {
+        handleMessage(event.data);
       }
     };
 
     socket.onclose = () => {
-      if (!stopped) {
+      sockets.delete(socket);
+      clearRefreshConnectTimer();
+
+      if (stopped) {
+        return;
+      }
+
+      if (activeSocket === socket) {
+        activeSocket = undefined;
         scheduleReconnect();
+        return;
+      }
+
+      if (!activeSocket) {
+        scheduleReconnect();
+        return;
+      }
+
+      if (mode === "refresh") {
+        scheduleRefresh();
       }
     };
 
     socket.onerror = () => {
-      socket?.close();
+      socket.close();
     };
   };
 
-  connect();
+  connect("primary");
 
   return () => {
     stopped = true;
     clearReconnectTimers();
-    socket?.close();
+    clearRefreshTimer();
+    activeSocket?.close();
+    sockets.forEach((socket) => {
+      socket.close();
+    });
+    sockets.clear();
   };
 }
 
-function parseMessage(raw: string): Message | null {
+function parseMessage(raw: unknown): Message | null {
+  if (typeof raw !== "string") {
+    return null;
+  }
+
   try {
-    return JSON.parse(raw) as Message;
+    const value: unknown = JSON.parse(raw);
+
+    if (!value || typeof value !== "object") {
+      return null;
+    }
+
+    const message = value as Record<string, unknown>;
+
+    return {
+      type: typeof message.type === "string" ? message.type : undefined,
+      status: typeof message.status === "string" ? message.status : undefined,
+    };
   } catch {
     return null;
   }

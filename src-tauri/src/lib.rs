@@ -12,6 +12,12 @@ struct AppConfig {
     default_width: f64,
     default_height: f64,
     always_on_top: bool,
+    #[serde(default = "default_rounded_corners")]
+    rounded_corners: bool,
+}
+
+fn default_rounded_corners() -> bool {
+    true
 }
 
 impl Default for AppConfig {
@@ -21,6 +27,7 @@ impl Default for AppConfig {
             default_width: 220.0,
             default_height: 90.0,
             always_on_top: true,
+            rounded_corners: default_rounded_corners(),
         }
     }
 }
@@ -40,6 +47,28 @@ fn config_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(config_dir(app)?.join("config.json"))
 }
 
+fn add_missing_defaults(config: &mut serde_json::Value, defaults: &serde_json::Value) -> bool {
+    let (Some(config), Some(defaults)) = (config.as_object_mut(), defaults.as_object()) else {
+        return false;
+    };
+
+    let mut changed = false;
+
+    for (key, default_value) in defaults {
+        match config.get_mut(key) {
+            Some(config_value) => {
+                changed |= add_missing_defaults(config_value, default_value);
+            }
+            None => {
+                config.insert(key.clone(), default_value.clone());
+                changed = true;
+            }
+        }
+    }
+
+    changed
+}
+
 fn ensure_config(app: &AppHandle) -> Result<AppConfig, String> {
     let path = config_path(app)?;
 
@@ -51,8 +80,16 @@ fn ensure_config(app: &AppHandle) -> Result<AppConfig, String> {
     }
 
     let text = fs::read_to_string(&path).map_err(|error| error.to_string())?;
+    let mut value: serde_json::Value =
+        serde_json::from_str(&text).map_err(|error| error.to_string())?;
+    let defaults = serde_json::to_value(AppConfig::default()).map_err(|error| error.to_string())?;
 
-    serde_json::from_str(&text).map_err(|error| error.to_string())
+    if add_missing_defaults(&mut value, &defaults) {
+        let migrated = serde_json::to_string_pretty(&value).map_err(|error| error.to_string())?;
+        fs::write(&path, migrated).map_err(|error| error.to_string())?;
+    }
+
+    serde_json::from_value(value).map_err(|error| error.to_string())
 }
 
 fn open_config_folder_impl(app: &AppHandle) -> Result<(), String> {

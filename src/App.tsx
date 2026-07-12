@@ -18,6 +18,10 @@ const SIGNAL_LABELS: Partial<Record<Signal, string>> = {
   LMP2_Q_GREEN: "LMP2",
   LMP3_Q_CHQ: "LMP3",
   LMP3_Q_GREEN: "LMP3",
+  S1_Y: "S1",
+  S2_Y: "S2",
+  S3_Y: "S3",
+  UNLAP: "SC / UNLAP"
 };
 
 function App() {
@@ -26,6 +30,7 @@ function App() {
   const [backgroundMode, setBackgroundMode] = useState<"transparent" | "black">(
     "transparent",
   );
+  const [roundedCorners, setRoundedCorners] = useState(true);
   const [animationKey, setAnimationKey] = useState(0);
   const currentWindow = getCurrentWindow();
 
@@ -55,6 +60,7 @@ function App() {
           return;
         }
 
+        setRoundedCorners(config.roundedCorners);
         disconnect = connectSocket(config.websocketUrl, {
           onSignal(nextSignal) {
             setSignal(nextSignal);
@@ -108,6 +114,7 @@ function App() {
       onMouseDown={handleDragStart}
       data-background={backgroundMode}
       data-connection={retryInSeconds === null ? "connected" : "disconnected"}
+      data-rounded-corners={roundedCorners}
       data-signal={signal}
       aria-label={liveText ?? signal}
     >
