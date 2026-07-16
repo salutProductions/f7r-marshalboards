@@ -31,6 +31,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Run test suites
+        run: npm test
+
       - name: Build Tauri raw binary
         run: npm run tauri build -- --no-bundle
 

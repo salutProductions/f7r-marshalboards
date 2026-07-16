@@ -1,3 +1,11 @@
+import type { FcyCountdown } from "./countdown";
+import {
+  calculateClockSyncSample,
+  type ClockSyncSample,
+} from "./clock";
+
+export type { FcyCountdown } from "./countdown";
+
 export type Signal =
   | "NOTHING"
   | "GREEN"
@@ -22,24 +30,34 @@ export type Signal =
   | "S3_Y"
   | "UNLAP";
 
-type Message = {
-  type?: string;
-  status?: string;
-};
+export type RaceState =
+  | { kind: "signal"; signal: Signal; eventId?: string; sequence?: number }
+  | ({ kind: "fcy-countdown" } & FcyCountdown);
 
 export type SocketStatus =
+  | { type: "connecting" }
+  | { type: "syncing" }
   | { type: "connected" }
   | { type: "reconnecting"; retryInSeconds: number };
 
+export type ClockSync = {
+  offsetMs: number;
+  uncertaintyMs: number;
+};
+
 type SocketHandlers = {
-  onSignal: (signal: Signal) => void;
+  onState: (state: RaceState) => void;
   onStatus: (status: SocketStatus) => void;
+  onClockSync: (clock: ClockSync) => void;
 };
 
 const INITIAL_RETRY_MS = 1000;
 const MAX_RETRY_MS = 10000;
-const SOCKET_REFRESH_MS = 30000;
-const REFRESH_CONNECT_TIMEOUT_MS = 5000;
+const CONNECT_TIMEOUT_MS = 5000;
+const TIME_SYNC_INTERVAL_MS = 10000;
+const STALE_CONNECTION_MS = 25000;
+const TIME_SYNC_BURST_DELAYS_MS = [0, 150, 350, 700] as const;
+const MAX_TIME_SYNC_SAMPLES = 8;
 
 const SIGNALS = [
   "NOTHING",
@@ -69,13 +87,21 @@ const SIGNALS = [
 const VALID_SIGNALS = new Set<Signal>(SIGNALS);
 
 export function connectSocket(url: string, handlers: SocketHandlers) {
-  const sockets = new Set<WebSocket>();
-  let activeSocket: WebSocket | undefined;
+  let socket: WebSocket | undefined;
   let reconnectTimer: number | undefined;
   let countdownTimer: number | undefined;
-  let refreshTimer: number | undefined;
+  let heartbeatTimer: number | undefined;
   let stopped = false;
   let retryMs = INITIAL_RETRY_MS;
+  let lastServerMessageAt = 0;
+  let requestCounter = 0;
+  let latestSequence = -1;
+  let awaitingSnapshot = false;
+  let timeSyncRequired = false;
+  let timeSyncSamples: ClockSyncSample[] = [];
+
+  const burstTimers = new Set<number>();
+  const pendingTimeSync = new Map<string, number>();
 
   const clearReconnectTimers = () => {
     window.clearTimeout(reconnectTimer);
@@ -84,9 +110,13 @@ export function connectSocket(url: string, handlers: SocketHandlers) {
     countdownTimer = undefined;
   };
 
-  const clearRefreshTimer = () => {
-    window.clearTimeout(refreshTimer);
-    refreshTimer = undefined;
+  const clearConnectionTimers = () => {
+    window.clearInterval(heartbeatTimer);
+    heartbeatTimer = undefined;
+
+    burstTimers.forEach((timer) => window.clearTimeout(timer));
+    burstTimers.clear();
+    pendingTimeSync.clear();
   };
 
   const scheduleReconnect = () => {
@@ -94,13 +124,16 @@ export function connectSocket(url: string, handlers: SocketHandlers) {
       return;
     }
 
-    clearRefreshTimer();
+    clearConnectionTimers();
 
     const retryAt = Date.now() + retryMs;
     let lastReportedSeconds = -1;
 
     const reportCountdown = () => {
-      const retryInSeconds = Math.max(0, Math.ceil((retryAt - Date.now()) / 1000));
+      const retryInSeconds = Math.max(
+        0,
+        Math.ceil((retryAt - Date.now()) / 1000),
+      );
 
       if (retryInSeconds !== lastReportedSeconds) {
         lastReportedSeconds = retryInSeconds;
@@ -112,158 +145,343 @@ export function connectSocket(url: string, handlers: SocketHandlers) {
     countdownTimer = window.setInterval(reportCountdown, 250);
     reconnectTimer = window.setTimeout(() => {
       clearReconnectTimers();
-      connect("primary");
+      connect();
     }, retryMs);
 
     retryMs = Math.min(retryMs * 1.5, MAX_RETRY_MS);
   };
 
-  const scheduleRefresh = () => {
-    if (refreshTimer !== undefined || stopped) {
+  const sendTimeSync = (currentSocket: WebSocket) => {
+    if (
+      stopped ||
+      socket !== currentSocket ||
+      currentSocket.readyState !== WebSocket.OPEN
+    ) {
       return;
     }
 
-    refreshTimer = window.setTimeout(() => {
-      clearRefreshTimer();
+    const requestId = `sync-${Date.now()}-${++requestCounter}`;
+    const clientSentAt = Date.now();
 
-      if (!activeSocket || activeSocket.readyState !== WebSocket.OPEN) {
-        activeSocket?.close();
-        activeSocket = undefined;
-        scheduleReconnect();
+    for (const [pendingRequestId, pendingSentAt] of pendingTimeSync) {
+      if (clientSentAt - pendingSentAt > 60000) {
+        pendingTimeSync.delete(pendingRequestId);
+      }
+    }
+
+    pendingTimeSync.set(requestId, clientSentAt);
+
+    try {
+      currentSocket.send(
+        JSON.stringify({
+          type: "TIME_SYNC",
+          requestId,
+          clientSentAt,
+        }),
+      );
+    } catch {
+      currentSocket.close();
+    }
+  };
+
+  const startTimeSync = (currentSocket: WebSocket) => {
+    clearConnectionTimers();
+    timeSyncSamples = [];
+    lastServerMessageAt = Date.now();
+
+    for (const delay of TIME_SYNC_BURST_DELAYS_MS) {
+      const timer = window.setTimeout(() => {
+        burstTimers.delete(timer);
+        sendTimeSync(currentSocket);
+      }, delay);
+
+      burstTimers.add(timer);
+    }
+
+    heartbeatTimer = window.setInterval(() => {
+      if (
+        timeSyncRequired &&
+        Date.now() - lastServerMessageAt > STALE_CONNECTION_MS
+      ) {
+        currentSocket.close(4000, "stale connection");
         return;
       }
 
-      connect("refresh");
-    }, SOCKET_REFRESH_MS);
+      sendTimeSync(currentSocket);
+    }, TIME_SYNC_INTERVAL_MS);
+  };
+
+  const handleTimeSync = (
+    message: Record<string, unknown>,
+    clientReceivedAt: number,
+  ) => {
+    if (message.type !== "TIME_SYNC" || typeof message.requestId !== "string") {
+      return false;
+    }
+
+    const clientSentAt = pendingTimeSync.get(message.requestId);
+    const serverReceivedAt = readFiniteNumber(message.serverReceivedAt);
+    const serverSentAt = readFiniteNumber(message.serverSentAt);
+
+    if (
+      clientSentAt === undefined ||
+      serverReceivedAt === undefined ||
+      serverSentAt === undefined ||
+      serverSentAt < serverReceivedAt
+    ) {
+      return true;
+    }
+
+    pendingTimeSync.delete(message.requestId);
+
+    const sample = calculateClockSyncSample(
+      clientSentAt,
+      serverReceivedAt,
+      serverSentAt,
+      clientReceivedAt,
+    );
+
+    if (!sample) {
+      return true;
+    }
+
+    timeSyncSamples.push(sample);
+    timeSyncSamples = timeSyncSamples.slice(-MAX_TIME_SYNC_SAMPLES);
+
+    const bestSample = timeSyncSamples.reduce((best, current) =>
+      current.roundTripMs < best.roundTripMs ? current : best,
+    );
+
+    handlers.onClockSync({
+      offsetMs: bestSample.offsetMs,
+      uncertaintyMs: bestSample.uncertaintyMs,
+    });
+
+    return true;
+  };
+
+  const handleState = (
+    message: Record<string, unknown>,
+    clientReceivedAt: number,
+  ) => {
+    const sequence = readNonNegativeInteger(message.sequence);
+
+    if (
+      sequence !== undefined &&
+      (sequence < latestSequence ||
+        (sequence === latestSequence && !awaitingSnapshot))
+    ) {
+      return;
+    }
+
+    let state: RaceState | undefined;
+
+    if (message.type === "FCY_COUNTDOWN") {
+      const eventId = typeof message.eventId === "string" ? message.eventId : "";
+      const countdownStartsAt = readFiniteNumber(message.countdownStartsAt);
+      const fcyAt = readFiniteNumber(message.fcyAt);
+      const declaredCountdownSeconds = readNonNegativeInteger(
+        message.countdownSeconds,
+      );
+
+      if (
+        eventId &&
+        countdownStartsAt !== undefined &&
+        fcyAt !== undefined &&
+        fcyAt > countdownStartsAt &&
+        calculatedCountdownDurationIsValid(countdownStartsAt, fcyAt)
+      ) {
+        const calculatedCountdownSeconds = Math.ceil(
+          (fcyAt - countdownStartsAt) / 1000,
+        );
+
+        state = {
+          kind: "fcy-countdown",
+          eventId,
+          sequence,
+          countdownSeconds:
+            declaredCountdownSeconds === calculatedCountdownSeconds
+              ? declaredCountdownSeconds
+              : calculatedCountdownSeconds,
+          countdownStartsAt,
+          fcyAt,
+        };
+      }
+    } else if (message.type === "IDLE" || message.status === "NOTHING") {
+      state = {
+        kind: "signal",
+        signal: "NOTHING",
+        eventId: readString(message.eventId),
+        sequence,
+      };
+    } else if (message.type === "RACE_CONTROL") {
+      const status = readString(message.status);
+
+      if (!isSignal(status)) {
+        return;
+      }
+
+      state = {
+        kind: "signal",
+        signal: status,
+        eventId: readString(message.eventId),
+        sequence,
+      };
+    }
+
+    if (!state) {
+      return;
+    }
+
+    if (sequence !== undefined) {
+      latestSequence = sequence;
+    }
+
+    timeSyncRequired =
+      (readNonNegativeInteger(message.protocolVersion) ?? 0) >= 1;
+
+    if (timeSyncSamples.length === 0) {
+      const coarseServerTime =
+        readFiniteNumber(message.snapshotAt) ??
+        readFiniteNumber(message.serverSentAt);
+
+      if (coarseServerTime !== undefined) {
+        handlers.onClockSync({
+          offsetMs: coarseServerTime - clientReceivedAt,
+          uncertaintyMs: 250,
+        });
+      }
+    }
+
+    awaitingSnapshot = false;
+    handlers.onState(state);
+    handlers.onStatus({ type: "connected" });
   };
 
   const handleMessage = (raw: unknown) => {
-    const message = parseMessage(raw);
+    const clientReceivedAt = Date.now();
 
-    if (!message) {
+    if (typeof raw !== "string") {
       return;
     }
 
-    if (message.type === "IDLE" || message.status === "NOTHING") {
-      handlers.onSignal("NOTHING");
+    let value: unknown;
+
+    try {
+      value = JSON.parse(raw);
+    } catch {
       return;
     }
 
-    if (message.type === "RACE_CONTROL" && isSignal(message.status)) {
-      handlers.onSignal(message.status);
-    }
-  };
-
-  const connect = (mode: "primary" | "refresh") => {
-    const socket = new WebSocket(url);
-    let refreshConnectTimer: number | undefined;
-    sockets.add(socket);
-
-    const clearRefreshConnectTimer = () => {
-      window.clearTimeout(refreshConnectTimer);
-      refreshConnectTimer = undefined;
-    };
-
-    if (mode === "refresh") {
-      refreshConnectTimer = window.setTimeout(() => {
-        socket.close();
-      }, REFRESH_CONNECT_TIMEOUT_MS);
-    }
-
-    socket.onopen = () => {
-      clearReconnectTimers();
-      clearRefreshConnectTimer();
-
-      if (stopped) {
-        socket.close();
-        return;
-      }
-
-      retryMs = INITIAL_RETRY_MS;
-
-      const previousSocket = activeSocket;
-      activeSocket = socket;
-
-      if (previousSocket && previousSocket !== socket) {
-        previousSocket.close(1000, "refresh");
-      }
-
-      scheduleRefresh();
-      handlers.onStatus({ type: "connected" });
-    };
-
-    socket.onmessage = (event) => {
-      if (activeSocket === socket) {
-        handleMessage(event.data);
-      }
-    };
-
-    socket.onclose = () => {
-      sockets.delete(socket);
-      clearRefreshConnectTimer();
-
-      if (stopped) {
-        return;
-      }
-
-      if (activeSocket === socket) {
-        activeSocket = undefined;
-        scheduleReconnect();
-        return;
-      }
-
-      if (!activeSocket) {
-        scheduleReconnect();
-        return;
-      }
-
-      if (mode === "refresh") {
-        scheduleRefresh();
-      }
-    };
-
-    socket.onerror = () => {
-      socket.close();
-    };
-  };
-
-  connect("primary");
-
-  return () => {
-    stopped = true;
-    clearReconnectTimers();
-    clearRefreshTimer();
-    activeSocket?.close();
-    sockets.forEach((socket) => {
-      socket.close();
-    });
-    sockets.clear();
-  };
-}
-
-function parseMessage(raw: unknown): Message | null {
-  if (typeof raw !== "string") {
-    return null;
-  }
-
-  try {
-    const value: unknown = JSON.parse(raw);
-
-    if (!value || typeof value !== "object") {
-      return null;
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return;
     }
 
     const message = value as Record<string, unknown>;
 
-    return {
-      type: typeof message.type === "string" ? message.type : undefined,
-      status: typeof message.status === "string" ? message.status : undefined,
+    if (!handleTimeSync(message, clientReceivedAt)) {
+      handleState(message, clientReceivedAt);
+    }
+  };
+
+  const connect = () => {
+    if (stopped) {
+      return;
+    }
+
+    handlers.onStatus({ type: "connecting" });
+
+    let currentSocket: WebSocket;
+
+    try {
+      currentSocket = new WebSocket(url);
+    } catch {
+      scheduleReconnect();
+      return;
+    }
+
+    socket = currentSocket;
+
+    const connectTimer = window.setTimeout(() => {
+      currentSocket.close(4001, "connect timeout");
+    }, CONNECT_TIMEOUT_MS);
+
+    currentSocket.onopen = () => {
+      window.clearTimeout(connectTimer);
+
+      if (stopped || socket !== currentSocket) {
+        currentSocket.close();
+        return;
+      }
+
+      clearReconnectTimers();
+      retryMs = INITIAL_RETRY_MS;
+      awaitingSnapshot = true;
+      timeSyncRequired = false;
+      handlers.onStatus({ type: "syncing" });
+      startTimeSync(currentSocket);
     };
-  } catch {
-    return null;
-  }
+
+    currentSocket.onmessage = (event) => {
+      if (socket !== currentSocket) {
+        return;
+      }
+
+      lastServerMessageAt = Date.now();
+      handleMessage(event.data);
+    };
+
+    currentSocket.onclose = () => {
+      if (socket !== currentSocket) {
+        return;
+      }
+
+      window.clearTimeout(connectTimer);
+      socket = undefined;
+      clearConnectionTimers();
+
+      if (!stopped) {
+        scheduleReconnect();
+      }
+    };
+
+    currentSocket.onerror = () => {
+      currentSocket.close();
+    };
+  };
+
+  connect();
+
+  return () => {
+    stopped = true;
+    clearReconnectTimers();
+    clearConnectionTimers();
+    socket?.close();
+    socket = undefined;
+  };
+}
+
+function readFiniteNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function readNonNegativeInteger(value: unknown) {
+  return typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0
+    ? value
+    : undefined;
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" ? value : undefined;
 }
 
 function isSignal(value: string | undefined): value is Signal {
   return Boolean(value && VALID_SIGNALS.has(value as Signal));
+}
+
+function calculatedCountdownDurationIsValid(startsAt: number, fcyAt: number) {
+  const durationMs = fcyAt - startsAt;
+  return durationMs >= 5000 && durationMs <= 120000;
 }

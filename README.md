@@ -54,7 +54,7 @@ Originally made for F7R's Le Mans Ultimate division, made to be compatible with 
 
 By default, the app automatically connects to F7's MarshalBoard's websocket. To configure it to your league, check the [configuration guide](https://github.com/salutProductions/f7r-marshalboards/blob/main/docs/LEAGUE.md). 
 * Exclusive Fullscreen mode is **NOT** supported. Please use Windowed or Borderless Fullscreen. 
-* VR Users can use this overlay app using apps like CrewChief.
+* VR Users can use this overlay app using apps like OpenKneeboard, CrewChief, or the SteamVR App Docking feature.
 
 
 ## 📄 License

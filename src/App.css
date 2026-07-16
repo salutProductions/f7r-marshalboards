@@ -41,6 +41,7 @@ body,
     font-family: "ChargeVector", Arial, sans-serif;
     justify-content: center;
     overflow: hidden;
+    position: relative;
     user-select: none;
     -webkit-user-select: none;
 }
@@ -63,6 +64,20 @@ body,
     overflow-wrap: anywhere;
     text-align: center;
     text-transform: uppercase;
+}
+
+.connection-warning {
+    background: var(--red);
+    border-radius: 0.25rem;
+    bottom: 0.25rem;
+    color: var(--white);
+    font-family: Arial, sans-serif;
+    font-size: clamp(0.55rem, 7vmin, 1rem);
+    font-weight: 700;
+    line-height: 1;
+    padding: 0.2rem 0.3rem;
+    position: absolute;
+    right: 0.25rem;
 }
 
 .signal[data-signal="NOTHING"] {

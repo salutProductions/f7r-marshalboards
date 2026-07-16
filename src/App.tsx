@@ -3,7 +3,14 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 import "./App.css";
 import { loadConfig } from "./config";
-import { connectSocket, type Signal } from "./socket";
+import { getFcyCountdownDisplay } from "./countdown";
+import {
+  connectSocket,
+  type FcyCountdown,
+  type RaceState,
+  type Signal,
+  type SocketStatus,
+} from "./socket";
 
 const SIGNAL_LABELS: Partial<Record<Signal, string>> = {
   SC: "SC",
@@ -21,18 +28,25 @@ const SIGNAL_LABELS: Partial<Record<Signal, string>> = {
   S1_Y: "S1",
   S2_Y: "S2",
   S3_Y: "S3",
-  UNLAP: "SC / UNLAP"
+  UNLAP: "SC / UNLAP",
 };
 
 function App() {
   const [signal, setSignal] = useState<Signal>("NOTHING");
-  const [retryInSeconds, setRetryInSeconds] = useState<number | null>(null);
+  const [countdown, setCountdown] = useState<FcyCountdown | null>(null);
+  const [socketStatus, setSocketStatus] = useState<SocketStatus>({
+    type: "connecting",
+  });
+  const [clockAnchor, setClockAnchor] = useState(() => ({
+    serverTimeAtSync: Date.now(),
+    monotonicAtSync: performance.now(),
+  }));
+  const [monotonicNow, setMonotonicNow] = useState(() => performance.now());
   const [backgroundMode, setBackgroundMode] = useState<"transparent" | "black">(
     "transparent",
   );
   const [roundedCorners, setRoundedCorners] = useState(true);
   const [animationKey, setAnimationKey] = useState(0);
-  const currentWindow = getCurrentWindow();
 
   function handleDragStart(event: React.MouseEvent<HTMLElement>) {
     if (event.button !== 0) {
@@ -40,7 +54,7 @@ function App() {
     }
 
     event.preventDefault();
-    currentWindow.startDragging();
+    getCurrentWindow().startDragging();
   }
 
   function handleContextMenu(event: React.MouseEvent<HTMLElement>) {
@@ -62,17 +76,28 @@ function App() {
 
         setRoundedCorners(config.roundedCorners);
         disconnect = connectSocket(config.websocketUrl, {
-          onSignal(nextSignal) {
-            setSignal(nextSignal);
-            setAnimationKey((current) => current + 1);
-          },
-          onStatus(status) {
-            if (status.type === "connected") {
-              setRetryInSeconds(null);
+          onState(state: RaceState) {
+            if (state.kind === "fcy-countdown") {
+              setCountdown(state);
+              setMonotonicNow(performance.now());
               return;
             }
 
-            setRetryInSeconds(status.retryInSeconds);
+            setCountdown(null);
+            setSignal(state.signal);
+            setAnimationKey((current) => current + 1);
+          },
+          onStatus(status) {
+            setSocketStatus(status);
+          },
+          onClockSync(clock) {
+            const now = performance.now();
+
+            setClockAnchor({
+              serverTimeAtSync: Date.now() + clock.offsetMs,
+              monotonicAtSync: now,
+            });
+            setMonotonicNow(now);
           },
         });
       })
@@ -85,6 +110,30 @@ function App() {
       disconnect?.();
     };
   }, []);
+
+  useEffect(() => {
+    if (!countdown) {
+      return;
+    }
+
+    let timer: number | undefined;
+
+    const tick = () => {
+      const now = performance.now();
+      const estimatedServerNow =
+        clockAnchor.serverTimeAtSync + (now - clockAnchor.monotonicAtSync);
+
+      setMonotonicNow(now);
+
+      if (estimatedServerNow < countdown.fcyAt) {
+        timer = window.setTimeout(tick, 50);
+      }
+    };
+
+    tick();
+
+    return () => window.clearTimeout(timer);
+  }, [countdown, clockAnchor]);
 
   useEffect(() => {
     function handleKeyboardShortcut(event: KeyboardEvent) {
@@ -103,8 +152,22 @@ function App() {
     };
   }, []);
 
+  const estimatedServerNow =
+    clockAnchor.serverTimeAtSync +
+    (monotonicNow - clockAnchor.monotonicAtSync);
+  const countdownDisplay = countdown
+    ? getFcyCountdownDisplay(countdown, estimatedServerNow)
+    : null;
+  const displaySignal = countdownDisplay?.visible ? "FCY" : signal;
+  const connectionText = getConnectionText(socketStatus);
   const liveText =
-    retryInSeconds === null ? SIGNAL_LABELS[signal] : `DSC-${retryInSeconds}`;
+    countdownDisplay?.visible
+      ? countdownDisplay.remainingSeconds > 0
+        ? `FCY ${countdownDisplay.remainingSeconds}`
+        : "FCY"
+      : connectionText ?? SIGNAL_LABELS[signal];
+  const isConnected = socketStatus.type === "connected";
+  const preserveCommittedCountdown = Boolean(countdownDisplay?.visible);
 
   return (
     <main
@@ -113,14 +176,32 @@ function App() {
       onContextMenu={handleContextMenu}
       onMouseDown={handleDragStart}
       data-background={backgroundMode}
-      data-connection={retryInSeconds === null ? "connected" : "disconnected"}
+      data-connection={
+        isConnected || preserveCommittedCountdown ? "connected" : "disconnected"
+      }
       data-rounded-corners={roundedCorners}
-      data-signal={signal}
-      aria-label={liveText ?? signal}
+      data-signal={displaySignal}
+      aria-label={liveText ?? displaySignal}
     >
       {liveText && <span>{liveText}</span>}
+      {preserveCommittedCountdown && !isConnected && (
+        <small className="connection-warning">DSC</small>
+      )}
     </main>
   );
+}
+
+function getConnectionText(status: SocketStatus) {
+  switch (status.type) {
+    case "connecting":
+      return "CONN";
+    case "syncing":
+      return "SYNC";
+    case "reconnecting":
+      return `DSC-${status.retryInSeconds}`;
+    case "connected":
+      return null;
+  }
 }
 
 export default App;

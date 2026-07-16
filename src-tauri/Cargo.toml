@@ -1,6 +1,6 @@
 [package]
 name = "f7r-marshalboards"
-version = "0.1.7"
+version = "0.4.0"
 description = "A compact LMU marshal board overlay for F7R race control."
 authors = ["salutProductions"]
 edition = "2021"
