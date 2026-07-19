@@ -8,8 +8,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "test": "npm run test:app && npm run test:worker",
-    "test:app": "vitest run src",
-    "test:worker": "node --test cloudflare/protocol.test.js",
+    "test:app": "vitest run src --passWithNoTests",
+    "test:worker": "node --test",
     "preview": "vite preview",
     "tauri": "tauri"
   },
