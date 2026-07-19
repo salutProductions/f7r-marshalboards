@@ -21,7 +21,8 @@
         "transparent": true,
         "shadow": false,
         "resizable": true,
-        "alwaysOnTop": true
+        "alwaysOnTop": true,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required"
       }
     ],
     "security": {

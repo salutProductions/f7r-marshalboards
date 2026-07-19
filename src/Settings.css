@@ -1,0 +1,197 @@
+body[data-window="settings"] {
+    background: var(--black);
+    color: var(--white);
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    overflow: auto;
+}
+
+body[data-window="settings"] #root {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+}
+
+.settings {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-height: 100vh;
+    padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.settings h1 {
+    font-family: "ChargeVector", Arial, sans-serif;
+    font-size: 1.8rem;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    margin: 0;
+    text-transform: uppercase;
+}
+
+.settings h2 {
+    border-bottom: 2px solid var(--yellow);
+    color: var(--yellow);
+    font-family: "ChargeVector", Arial, sans-serif;
+    font-size: 1rem;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    margin: 0 0 0.75rem;
+    padding-bottom: 0.35rem;
+    text-transform: uppercase;
+}
+
+.settings section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.settings .notice {
+    background: #1a1503;
+    border: 1px solid var(--yellow);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
+}
+
+.settings .notice p {
+    font-size: 0.8rem;
+    line-height: 1.4;
+    margin: 0;
+}
+
+.settings .notice code {
+    color: var(--yellow);
+    font-size: 0.75rem;
+    overflow-wrap: anywhere;
+}
+
+.settings .notice button {
+    align-self: flex-start;
+    border-color: var(--yellow);
+    color: var(--yellow);
+}
+
+.settings .notice button:hover {
+    background: var(--yellow);
+    color: var(--black);
+}
+
+.settings .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.settings .field > span {
+    color: #999;
+    font-size: 0.8rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.settings .field input[type="text"],
+.settings .field input[type="number"] {
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: var(--white);
+    font: inherit;
+    padding: 0.4rem 0.55rem;
+}
+
+.settings .field input:focus-visible {
+    border-color: var(--yellow);
+    outline: none;
+}
+
+.settings .field-row {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.settings .field-row .field {
+    flex: 1;
+}
+
+.settings .check {
+    align-items: center;
+    display: flex;
+    gap: 0.5rem;
+    user-select: none;
+}
+
+.settings .check input {
+    accent-color: var(--yellow);
+}
+
+.settings .volume-row {
+    align-items: center;
+    display: flex;
+    gap: 0.75rem;
+}
+
+.settings .volume-row input[type="range"] {
+    accent-color: var(--yellow);
+    flex: 1;
+}
+
+.settings .hint {
+    color: #777;
+    font-size: 0.75rem;
+    margin: 0;
+}
+
+.settings button {
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: var(--white);
+    cursor: pointer;
+    font: inherit;
+    padding: 0.35rem 1rem;
+}
+
+.settings button:hover {
+    border-color: var(--yellow);
+}
+
+.settings footer {
+    align-items: center;
+    display: flex;
+    gap: 0.75rem;
+    margin-top: auto;
+}
+
+.settings .save {
+    background: var(--yellow);
+    border-color: var(--yellow);
+    color: var(--black);
+    font-family: "ChargeVector", Arial, sans-serif;
+    font-size: 1rem;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    padding: 0.45rem 1.6rem;
+    text-transform: uppercase;
+}
+
+.settings .save:hover {
+    background: var(--alt-yellow);
+}
+
+.settings .status {
+    font-size: 0.8rem;
+}
+
+.settings .status.ok {
+    color: var(--green);
+}
+
+.settings .status.error {
+    color: var(--red);
+}

@@ -1,8 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
-import { loadConfig } from "./config";
+import { createAudioController, type AudioController } from "./audio";
+import { loadConfig, saveConfig, type AppConfig } from "./config";
 import { getFcyCountdownDisplay } from "./countdown";
 import {
   connectSocket,
@@ -45,8 +47,12 @@ function App() {
   const [backgroundMode, setBackgroundMode] = useState<"transparent" | "black">(
     "transparent",
   );
-  const [roundedCorners, setRoundedCorners] = useState(true);
+  const [config, setConfig] = useState<AppConfig | null>(null);
   const [animationKey, setAnimationKey] = useState(0);
+
+  const audioRef = useRef<AudioController | null>(null);
+  const configRef = useRef<AppConfig | null>(null);
+  configRef.current = config;
 
   function handleDragStart(event: React.MouseEvent<HTMLElement>) {
     if (event.button !== 0) {
@@ -61,45 +67,19 @@ function App() {
     event.preventDefault();
     event.stopPropagation();
 
-    invoke("show_context_menu");
+    invoke("show_context_menu", {
+      audioEnabled: configRef.current?.audioEnabled ?? true,
+    });
   }
 
   useEffect(() => {
-    let disconnect: (() => void) | undefined;
     let cancelled = false;
 
     loadConfig()
-      .then((config) => {
-        if (cancelled) {
-          return;
+      .then((loaded) => {
+        if (!cancelled) {
+          setConfig(loaded);
         }
-
-        setRoundedCorners(config.roundedCorners);
-        disconnect = connectSocket(config.websocketUrl, {
-          onState(state: RaceState) {
-            if (state.kind === "fcy-countdown") {
-              setCountdown(state);
-              setMonotonicNow(performance.now());
-              return;
-            }
-
-            setCountdown(null);
-            setSignal(state.signal);
-            setAnimationKey((current) => current + 1);
-          },
-          onStatus(status) {
-            setSocketStatus(status);
-          },
-          onClockSync(clock) {
-            const now = performance.now();
-
-            setClockAnchor({
-              serverTimeAtSync: Date.now() + clock.offsetMs,
-              monotonicAtSync: now,
-            });
-            setMonotonicNow(now);
-          },
-        });
       })
       .catch((error) => {
         console.error("Failed to load config:", error);
@@ -107,7 +87,107 @@ function App() {
 
     return () => {
       cancelled = true;
-      disconnect?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!config) {
+      return;
+    }
+
+    if (!audioRef.current) {
+      audioRef.current = createAudioController({
+        enabled: config.audioEnabled,
+        volume: config.audioVolume,
+      });
+    } else {
+      audioRef.current.setEnabled(config.audioEnabled);
+      audioRef.current.setVolume(config.audioVolume);
+    }
+  }, [config]);
+
+  useEffect(() => {
+    return () => {
+      audioRef.current?.dispose();
+      audioRef.current = null;
+    };
+  }, []);
+
+  const websocketUrl = config?.websocketUrl;
+
+  useEffect(() => {
+    if (!websocketUrl) {
+      return;
+    }
+
+    const disconnect = connectSocket(websocketUrl, {
+      onState(state: RaceState) {
+        audioRef.current?.onState(state);
+
+        if (state.kind === "fcy-countdown") {
+          setCountdown(state);
+          setMonotonicNow(performance.now());
+          return;
+        }
+
+        setCountdown(null);
+        setSignal(state.signal);
+        setAnimationKey((current) => current + 1);
+      },
+      onStatus(status) {
+        audioRef.current?.onStatus(status);
+        setSocketStatus(status);
+      },
+      onClockSync(clock) {
+        audioRef.current?.onClockSync(clock);
+
+        const now = performance.now();
+
+        setClockAnchor({
+          serverTimeAtSync: Date.now() + clock.offsetMs,
+          monotonicAtSync: now,
+        });
+        setMonotonicNow(now);
+      },
+    });
+
+    return () => {
+      disconnect();
+    };
+  }, [websocketUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let unlistens: UnlistenFn[] = [];
+
+    Promise.all([
+      listen<AppConfig>("config-updated", (event) => {
+        setConfig(event.payload);
+      }),
+      listen("toggle-audio", () => {
+        const current = configRef.current;
+
+        if (!current) {
+          return;
+        }
+
+        saveConfig({ ...current, audioEnabled: !current.audioEnabled }).catch(
+          (error) => {
+            console.error("Failed to save config:", error);
+          },
+        );
+      }),
+    ]).then((fns) => {
+      if (cancelled) {
+        fns.forEach((unlisten) => unlisten());
+      } else {
+        unlistens = fns;
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unlistens.forEach((unlisten) => unlisten());
     };
   }, []);
 
@@ -179,7 +259,7 @@ function App() {
       data-connection={
         isConnected || preserveCommittedCountdown ? "connected" : "disconnected"
       }
-      data-rounded-corners={roundedCorners}
+      data-rounded-corners={config?.roundedCorners ?? true}
       data-signal={displaySignal}
       aria-label={liveText ?? displaySignal}
     >

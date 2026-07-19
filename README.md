@@ -53,6 +53,8 @@ Originally made for F7R's Le Mans Ultimate division, made to be compatible with 
 
 
 By default, the app automatically connects to F7's MarshalBoard's websocket. To configure it to your league, check the [configuration guide](https://github.com/salutProductions/f7r-marshalboards/blob/main/docs/LEAGUE.md). 
+* Right-clicking the board opens a menu with a settings window, an audio mute toggle, the config folder and an exit option.
+* The app announces flag changes with voice callouts, including a spoken FCY countdown. Check the [configuration guide](https://github.com/salutProductions/f7r-marshalboards/blob/main/docs/LEAGUE.md#voice-callouts) to use your own recordings.
 * Exclusive Fullscreen mode is **NOT** supported. Please use Windowed or Borderless Fullscreen. 
 * VR Users can use this overlay app using apps like OpenKneeboard, CrewChief, or the SteamVR App Docking feature.
 
