@@ -53,8 +53,12 @@ type AudioControllerOptions = {
   now?: () => number;
 };
 
+export const MAX_AUDIO_VOLUME = 3;
+
 function clampVolume(volume: number) {
-  return Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : 1;
+  return Number.isFinite(volume)
+    ? Math.min(MAX_AUDIO_VOLUME, Math.max(0, volume))
+    : 1;
 }
 
 const CLIP_EXTENSIONS = ["mp3", "ogg", "opus", "wav"] as const;
@@ -66,6 +70,75 @@ export function createHtmlAudioPlayer(): AudioPlayer {
   let volume = 1;
   let current: HTMLAudioElement | null = null;
   let attempt: { candidates: readonly string[]; index: number } | null = null;
+  
+  const routed = new WeakSet<HTMLAudioElement>();
+  let context: AudioContext | null = null;
+  let gainNode: GainNode | null = null;
+
+  const ensureGain = () => {
+    if (gainNode) {
+      return gainNode;
+    }
+
+    const Ctor =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+
+    if (!Ctor) {
+      return null;
+    }
+
+    try {
+      context = new Ctor();
+      gainNode = context.createGain();
+      gainNode.connect(context.destination);
+    } catch {
+      context = null;
+      gainNode = null;
+    }
+
+    return gainNode;
+  };
+
+  const route = (element: HTMLAudioElement) => {
+    if (routed.has(element)) {
+      return true;
+    }
+
+    const gain = ensureGain();
+
+    if (!gain || !context) {
+      return false;
+    }
+
+    try {
+      context.createMediaElementSource(element).connect(gain);
+      routed.add(element);
+    } catch {
+      return false;
+    }
+
+    return true;
+  };
+
+  const applyVolume = (element: HTMLAudioElement) => {
+    if (volume > 1) {
+      route(element);
+    }
+
+    const boosted = routed.has(element);
+
+    element.volume = Math.min(1, volume);
+
+    if (gainNode) {
+      gainNode.gain.value = boosted ? Math.max(1, volume) : 1;
+    }
+
+    if (boosted && context?.state === "suspended") {
+      void context.resume();
+    }
+  };
 
   const expand = (clipIds: readonly string[]) =>
     clipIds.flatMap((clipId) =>
@@ -114,7 +187,7 @@ export function createHtmlAudioPlayer(): AudioPlayer {
 
       current?.pause();
       current = entry.element;
-      entry.element.volume = volume;
+      applyVolume(entry.element);
       entry.element.currentTime = 0;
       entry.element.play().catch(() => {
         if (entry.element.error && attempt) {
@@ -143,7 +216,7 @@ export function createHtmlAudioPlayer(): AudioPlayer {
       volume = clampVolume(next);
 
       if (current) {
-        current.volume = volume;
+        applyVolume(current);
       }
     },
     prepare(clipId) {
@@ -158,6 +231,10 @@ export function createHtmlAudioPlayer(): AudioPlayer {
         entry.element.removeAttribute("src");
       });
       entries.clear();
+
+      void context?.close().catch(() => {});
+      context = null;
+      gainNode = null;
     },
   };
 }

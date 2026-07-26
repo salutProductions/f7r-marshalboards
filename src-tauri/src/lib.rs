@@ -28,6 +28,9 @@ fn default_audio_enabled() -> bool {
     true
 }
 
+/// Volumes above 1.0 are amplified by a gain stage in the frontend player.
+const MAX_AUDIO_VOLUME: f64 = 3.0;
+
 fn default_audio_volume() -> f64 {
     1.0
 }
@@ -147,7 +150,7 @@ fn save_config(app: AppHandle, mut config: AppConfig) -> Result<(), String> {
         return Err("WebSocket URL cannot be empty".into());
     }
 
-    config.audio_volume = config.audio_volume.clamp(0.0, 1.0);
+    config.audio_volume = config.audio_volume.clamp(0.0, MAX_AUDIO_VOLUME);
     config.default_width = config.default_width.max(170.0);
     config.default_height = config.default_height.max(70.0);
 

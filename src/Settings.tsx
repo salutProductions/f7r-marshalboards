@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import "./Settings.css";
-import { createHtmlAudioPlayer, type AudioPlayer } from "./audio";
+import {
+  createHtmlAudioPlayer,
+  MAX_AUDIO_VOLUME,
+  type AudioPlayer,
+} from "./audio";
 import { loadConfig, saveConfig, type AppConfig } from "./config";
 
 type SaveState =
@@ -87,6 +91,7 @@ function Settings() {
   }
 
   const volumePercent = Math.round(config.audioVolume * 100);
+  const volumeWarning = volumePercent > 100;
 
   return (
     <main className="settings">
@@ -179,7 +184,7 @@ function Settings() {
             <input
               type="range"
               min={0}
-              max={100}
+              max={MAX_AUDIO_VOLUME * 100}
               value={volumePercent}
               onChange={(event) =>
                 update({ audioVolume: Number(event.target.value) / 100 })
@@ -189,6 +194,11 @@ function Settings() {
               Test
             </button>
           </div>
+          {volumeWarning && (
+            <span className="badge warn" role="status">
+              ⚠ High level — distortion may occur
+            </span>
+          )}
         </label>
       </section>
 
