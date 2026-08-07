@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
 import { createAudioController, type AudioController } from "./audio";
@@ -54,6 +56,23 @@ function App() {
   const configRef = useRef<AppConfig | null>(null);
   configRef.current = config;
 
+  useEffect(() => {
+    async function runUpdateCheck() {
+      try {
+        const update = await check();
+        if (update) {
+          console.log(`Found update: ${update.version}`);
+          await update.downloadAndInstall();
+          await relaunch();
+        }
+      } catch (error) {
+        console.error("Failed to check for updates:", error);
+      }
+    }
+
+    runUpdateCheck();
+  }, []);
+  
   function handleDragStart(event: React.MouseEvent<HTMLElement>) {
     if (event.button !== 0) {
       return;
