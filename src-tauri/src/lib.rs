@@ -28,7 +28,6 @@ fn default_audio_enabled() -> bool {
     true
 }
 
-/// Volumes above 1.0 are amplified by a gain stage in the frontend player.
 const MAX_AUDIO_VOLUME: f64 = 3.0;
 
 fn default_audio_volume() -> f64 {
@@ -223,6 +222,7 @@ fn show_context_menu(window: tauri::Window, audio_enabled: bool) -> Result<(), S
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             match ensure_config(app.handle()) {
                 Ok(config) => {
