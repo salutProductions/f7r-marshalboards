@@ -96,7 +96,6 @@ fn ensure_config(app: &AppHandle) -> Result<AppConfig, String> {
     }
 
     let text = fs::read_to_string(&path).map_err(|error| error.to_string())?;
-    // Some editors save the config as UTF-8 with a BOM, which serde_json rejects.
     let text = text.trim_start_matches('\u{feff}');
     let mut value: serde_json::Value =
         serde_json::from_str(text).map_err(|error| error.to_string())?;

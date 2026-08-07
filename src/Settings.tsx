@@ -102,7 +102,8 @@ function Settings() {
         {config.websocketUrl === LEGACY_F7_URL && (
           <div className="notice">
             <p>
-              F7's marshal board server has moved. We recommend switching to
+              IMPORTANT NOTICE: From the 4th of September, the Legacy endpoint may no longer be available. Please switch to the new endpoint as soon as possible to ensure correct functionality of the application.
+              F7R's marshal board server has moved. We recommend switching to
               the new address: <code>{RECOMMENDED_F7_URL}</code>
             </p>
             <button type="button" onClick={handleSwitchUrl}>
@@ -196,7 +197,7 @@ function Settings() {
           </div>
           {volumeWarning && (
             <span className="badge warn" role="status">
-              ⚠ High level — distortion may occur
+              ⚠ High level caution — distortion may occur in some cases
             </span>
           )}
         </label>
