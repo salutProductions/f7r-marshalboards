@@ -148,7 +148,7 @@ function Settings() {
             />
           </label>
         </div>
-        <p className="hint">Default size applies on next launch.</p>
+        <p className="hint">Default size will apply on next launch.</p>
         <label className="check">
           <input
             type="checkbox"
