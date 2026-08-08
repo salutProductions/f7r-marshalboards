@@ -962,7 +962,7 @@ dependencies = [
 
 [[package]]
 name = "f7r-marshalboards"
-version = "0.4.0"
+version = "0.4.5"
 dependencies = [
  "opener",
  "serde",

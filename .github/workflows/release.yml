@@ -51,4 +51,4 @@ jobs:
             src-tauri/target/release/bundle/nsis/*.sig
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/msi/*.sig
-            src-tauri/target/release/latest.json
+            src-tauri/target/release/bundle/nsis/latest.json
