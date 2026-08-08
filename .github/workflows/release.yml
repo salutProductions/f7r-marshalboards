@@ -1,4 +1,4 @@
-name: "Publish Portable Windows EXE"
+name: Publish Windows Release
 
 on:
   push:
@@ -6,9 +6,10 @@ on:
       - "v*"
 
 jobs:
-  publish-windows-portable:
+  publish-windows:
     permissions:
       contents: write
+
     runs-on: windows-latest
 
     steps:
@@ -34,12 +35,30 @@ jobs:
       - name: Run test suites
         run: npm test
 
-      - name: Build Tauri raw binary
-        run: npm run tauri build -- --no-bundle
+      - name: Build and publish Tauri release
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: ${{ github.ref_name }}
+          releaseBody: "Windows release ${{ github.ref_name }}"
+          releaseDraft: false
+          prerelease: false
 
-      - name: Create release and upload portable EXE
+      - name: Prepare portable executable
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+
+          Copy-Item `
+            "src-tauri/target/release/f7r-marshalboards.exe" `
+            "f7r-marshalboards-$version-portable.exe"
+
+      - name: Upload portable executable
         uses: softprops/action-gh-release@v2
         with:
-          name: ${{ github.ref_name }}
-          files: |
-            src-tauri/target/release/*.exe
+          tag_name: ${{ github.ref_name }}
+          files: f7r-marshalboards-*-portable.exe
