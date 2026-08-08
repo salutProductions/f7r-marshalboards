@@ -47,3 +47,18 @@ jobs:
           releaseBody: "Windows release ${{ github.ref_name }}"
           releaseDraft: false
           prerelease: false
+
+      - name: Prepare portable executable
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+
+          Copy-Item `
+            "src-tauri/target/release/f7r-marshalboards.exe" `
+            "f7r-marshalboards-$version-portable.exe"
+
+      - name: Upload portable executable
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: f7r-marshalboards-*-portable.exe
