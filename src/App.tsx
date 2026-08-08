@@ -47,7 +47,7 @@ function App() {
   }));
   const [monotonicNow, setMonotonicNow] = useState(() => performance.now());
   const [backgroundMode, setBackgroundMode] = useState<"transparent" | "black">(
-    "transparent",
+    "black",
   );
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [animationKey, setAnimationKey] = useState(0);
@@ -72,7 +72,7 @@ function App() {
 
     runUpdateCheck();
   }, []);
-  
+
   function handleDragStart(event: React.MouseEvent<HTMLElement>) {
     if (event.button !== 0) {
       return;
