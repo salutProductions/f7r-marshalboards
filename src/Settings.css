@@ -159,6 +159,140 @@ body[data-window="settings"] #root {
     margin: 0;
 }
 
+body[data-window="settings"].modal-open {
+    overflow: hidden;
+}
+
+.settings .plugin-list {
+    display: grid;
+    gap: 0.6rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.settings .plugin-card {
+    align-items: center;
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 6px;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    padding: 0.75rem;
+}
+
+.settings .plugin-card-copy {
+    min-width: 0;
+}
+
+.settings .plugin-card h3 {
+    color: var(--white);
+    font-size: 0.95rem;
+    margin: 0 0 0.25rem;
+}
+
+.settings .plugin-card p,
+.settings .plugin-card code {
+    color: #999;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.settings .plugin-card code {
+    color: var(--yellow);
+}
+
+.settings .plugin-toggle {
+    align-items: center;
+    display: flex;
+    flex: 0 0 auto;
+    gap: 0.4rem;
+    white-space: nowrap;
+}
+
+.settings .plugin-toggle input {
+    accent-color: var(--yellow);
+}
+
+.settings .plugin-port {
+    flex: 0 0 5.5rem;
+}
+
+.settings .plugin-port input {
+    width: 100%;
+}
+
+.settings .modal-backdrop {
+    align-items: center;
+    background: rgba(0, 0, 0, 0.7);
+    box-sizing: border-box;
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    padding: 1rem;
+    position: fixed;
+    z-index: 10;
+}
+
+.settings .modal {
+    background: var(--black);
+    border: 1px solid #444;
+    border-radius: 8px;
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.65);
+    box-sizing: border-box;
+    max-width: 460px;
+    max-height: calc(100vh - 2rem);
+    overflow: auto;
+    padding: 1rem;
+    width: 100%;
+}
+
+.settings .modal .plugin-card {
+    align-items: start;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.settings .modal .plugin-port {
+    grid-column: 1;
+}
+
+.settings .modal .hint {
+    grid-column: 1 / -1;
+}
+
+.settings .plugin-install {
+    grid-column: 1 / -1;
+    justify-self: start;
+}
+
+.settings .plugin-install-status {
+    grid-column: 1 / -1;
+    overflow-wrap: anywhere;
+}
+
+.settings .modal-header {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.settings .modal-header h2 {
+    flex: 1;
+    margin: 0;
+}
+
+.settings .modal-close {
+    font-size: 1.4rem;
+    line-height: 1;
+    padding: 0.1rem 0.5rem;
+}
+
 .settings button {
     background: #111;
     border: 1px solid #333;

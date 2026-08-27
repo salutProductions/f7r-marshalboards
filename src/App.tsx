@@ -33,6 +33,7 @@ const SIGNAL_LABELS: Partial<Record<Signal, string>> = {
   S2_Y: "S2",
   S3_Y: "S3",
   UNLAP: "SC / UNLAP",
+  ABORT: "ABORT LAP",
 };
 
 function App() {
@@ -51,6 +52,7 @@ function App() {
   );
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [animationKey, setAnimationKey] = useState(0);
+  const [stateRevision, setStateRevision] = useState(0);
 
   const audioRef = useRef<AudioController | null>(null);
   const configRef = useRef<AppConfig | null>(null);
@@ -88,6 +90,7 @@ function App() {
 
     invoke("show_context_menu", {
       audioEnabled: configRef.current?.audioEnabled ?? true,
+      transparencyEnabled: configRef.current?.transparency ?? false,
     });
   }
 
@@ -98,6 +101,7 @@ function App() {
       .then((loaded) => {
         if (!cancelled) {
           setConfig(loaded);
+          setBackgroundMode(loaded.transparency ? "transparent" : "black");
         }
       })
       .catch((error) => {
@@ -152,6 +156,7 @@ function App() {
         setCountdown(null);
         setSignal(state.signal);
         setAnimationKey((current) => current + 1);
+        setStateRevision((current) => current + 1);
       },
       onStatus(status) {
         audioRef.current?.onStatus(status);
@@ -182,6 +187,9 @@ function App() {
     Promise.all([
       listen<AppConfig>("config-updated", (event) => {
         setConfig(event.payload);
+        setBackgroundMode(
+          event.payload.transparency ? "transparent" : "black",
+        );
       }),
       listen("toggle-audio", () => {
         const current = configRef.current;
@@ -193,6 +201,19 @@ function App() {
         saveConfig({ ...current, audioEnabled: !current.audioEnabled }).catch(
           (error) => {
             console.error("Failed to save config:", error);
+          },
+        );
+      }),
+      listen("toggle-transparency", () => {
+        const current = configRef.current;
+
+        if (!current) {
+          return;
+        }
+
+        saveConfig({ ...current, transparency: !current.transparency }).catch(
+          (error) => {
+            console.error("Failed to save transparency setting:", error);
           },
         );
       }),
@@ -238,8 +259,16 @@ function App() {
     function handleKeyboardShortcut(event: KeyboardEvent) {
       if (event.altKey && event.shiftKey && event.key.toLowerCase() === "t") {
         event.preventDefault();
-        setBackgroundMode((current) =>
-          current === "transparent" ? "black" : "transparent",
+        const current = configRef.current;
+
+        if (!current) {
+          return;
+        }
+
+        saveConfig({ ...current, transparency: !current.transparency }).catch(
+          (error) => {
+            console.error("Failed to save transparency setting:", error);
+          },
         );
       }
     }
@@ -267,6 +296,22 @@ function App() {
       : connectionText ?? SIGNAL_LABELS[signal];
   const isConnected = socketStatus.type === "connected";
   const preserveCommittedCountdown = Boolean(countdownDisplay?.visible);
+
+  useEffect(() => {
+    if (!config?.simhubRelayEnabled) {
+      return;
+    }
+
+    invoke("publish_simhub_state", {
+      signal: displaySignal,
+      remainingSeconds: countdownDisplay?.visible
+        ? countdownDisplay.remainingSeconds
+        : null,
+      countdownSeconds: countdownDisplay?.visible
+        ? countdown?.countdownSeconds ?? null
+        : null,
+    }).catch((error) => console.error("Failed to publish SimHub state:", error));
+  }, [config?.simhubRelayEnabled, displaySignal, countdownDisplay?.visible, countdownDisplay?.remainingSeconds, countdown?.countdownSeconds, stateRevision]);
 
   return (
     <main

@@ -5,6 +5,7 @@ import {
   MAX_AUDIO_VOLUME,
   type AudioPlayer,
 } from "./audio";
+import { invoke } from "@tauri-apps/api/core";
 import { loadConfig, saveConfig, type AppConfig } from "./config";
 
 type SaveState =
@@ -15,10 +16,15 @@ type SaveState =
 const LEGACY_F7_URL =
   "wss://f7livemanager.salutproductionscontact.workers.dev/ws";
 const RECOMMENDED_F7_URL = "wss://f7flags.saluthostedthis.tech/ws";
+const pluginsAvailable = import.meta.env.VITE_PORTABLE !== "true";
 
 function Settings() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [saveState, setSaveState] = useState<SaveState>({ type: "idle" });
+  const [pluginsOpen, setPluginsOpen] = useState(false);
+  const [pluginInstallStatus, setPluginInstallStatus] = useState<string | null>(
+    null,
+  );
   const testPlayerRef = useRef<AudioPlayer | null>(null);
 
   useEffect(() => {
@@ -38,6 +44,26 @@ function Settings() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!pluginsOpen) {
+      return;
+    }
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setPluginsOpen(false);
+      }
+    };
+
+    document.body.classList.add("modal-open");
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.body.classList.remove("modal-open");
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [pluginsOpen]);
 
   if (!config) {
     return <main className="settings">Loading…</main>;
@@ -87,6 +113,17 @@ function Settings() {
       setSaveState({ type: "saved" });
     } catch (error) {
       setSaveState({ type: "error", message: String(error) });
+    }
+  }
+
+  async function handleInstallSimHubPlugin() {
+    setPluginInstallStatus(null);
+
+    try {
+      const installedPath = await invoke<string>("install_simhub_plugin");
+      setPluginInstallStatus(`Installed to ${installedPath}. Restart SimHub.`);
+    } catch (error) {
+      setPluginInstallStatus(String(error));
     }
   }
 
@@ -167,6 +204,16 @@ function Settings() {
           />
           <span>Rounded corners</span>
         </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={config.transparency}
+            onChange={(event) =>
+              update({ transparency: event.target.checked })
+            }
+          />
+          <span>Transparent background</span>
+        </label>
       </section>
 
       <section>
@@ -202,6 +249,91 @@ function Settings() {
           )}
         </label>
       </section>
+
+      {pluginsAvailable && (
+        <section>
+          <h2>Plugins</h2>
+          <button type="button" onClick={() => setPluginsOpen(true)}>
+            Manage plugins
+          </button>
+        </section>
+      )}
+
+      {pluginsAvailable && pluginsOpen && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onMouseDown={() => setPluginsOpen(false)}
+        >
+          <section
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="plugins-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="modal-header">
+              <h2 id="plugins-title">Plugins</h2>
+              <button
+                type="button"
+                className="modal-close"
+                aria-label="Close plugins"
+                onClick={() => setPluginsOpen(false)}
+              >
+                ×
+              </button>
+            </header>
+            <ul className="plugin-list">
+              <li className="plugin-card">
+                <div className="plugin-card-copy">
+                  <h3>SimHub LED effects</h3>
+                  <p>Shares MarshalBoards flags with SimHub LED hardware.</p>
+                  <code>ws://127.0.0.1:{config.simhubRelayPort}/flags</code>
+                </div>
+                <label className="plugin-toggle">
+                  <input
+                    type="checkbox"
+                    checked={config.simhubRelayEnabled}
+                    onChange={(event) =>
+                      update({ simhubRelayEnabled: event.target.checked })
+                    }
+                  />
+                  <span>
+                    {config.simhubRelayEnabled ? "Enabled" : "Disabled"}
+                  </span>
+                </label>
+                <label className="field plugin-port">
+                  <span>Port</span>
+                  <input
+                    type="number"
+                    min={1024}
+                    max={65535}
+                    value={config.simhubRelayPort}
+                    onChange={(event) =>
+                      update({ simhubRelayPort: Number(event.target.value) })
+                    }
+                  />
+                </label>
+                <p className="hint">
+                  Port changes apply after restarting MarshalBoards.
+                </p>
+                <button
+                  type="button"
+                  className="plugin-install"
+                  onClick={handleInstallSimHubPlugin}
+                >
+                  Install to SimHub
+                </button>
+                {pluginInstallStatus && (
+                  <p className="plugin-install-status" role="status">
+                    {pluginInstallStatus}
+                  </p>
+                )}
+              </li>
+            </ul>
+          </section>
+        </div>
+      )}
 
       <footer>
         <button type="button" className="save" onClick={handleSave}>

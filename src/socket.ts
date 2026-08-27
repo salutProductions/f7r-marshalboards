@@ -28,7 +28,8 @@ export type Signal =
   | "S1_Y"
   | "S2_Y"
   | "S3_Y"
-  | "UNLAP";
+  | "UNLAP"
+  | "ABORT";
 
 export type RaceState =
   | { kind: "signal"; signal: Signal; eventId?: string; sequence?: number }
@@ -82,6 +83,7 @@ const SIGNALS = [
   "S2_Y",
   "S3_Y",
   "UNLAP",
+  "ABORT",
 ] as const satisfies readonly Signal[];
 
 const VALID_SIGNALS = new Set<Signal>(SIGNALS);

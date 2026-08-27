@@ -48,6 +48,9 @@ jobs:
           releaseDraft: false
           prerelease: false
 
+      - name: Build portable executable
+        run: npm run tauri:build:portable
+
       - name: Prepare portable executable
         shell: pwsh
         run: |
