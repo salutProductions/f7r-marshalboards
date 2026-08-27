@@ -6,8 +6,11 @@ export type AppConfig = {
   defaultHeight: number;
   alwaysOnTop: boolean;
   roundedCorners: boolean;
+  transparency: boolean;
   audioEnabled: boolean;
   audioVolume: number;
+  simhubRelayEnabled: boolean;
+  simhubRelayPort: number;
 };
 
 export async function loadConfig() {

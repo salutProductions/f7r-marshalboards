@@ -29,3 +29,4 @@ dist-ssr
 
 .tauri
 src-tauri/target
+/simhubplugin/

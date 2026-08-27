@@ -1,7 +1,7 @@
 {
   "name": "f7r-marshalboards",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Compact LMU marshal board overlay for F7R's race control.",
   "type": "module",
   "scripts": {
@@ -11,7 +11,8 @@
     "test:app": "vitest run src --passWithNoTests",
     "test:worker": "node --test",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:build:portable": "set \"VITE_PORTABLE=true\" && tauri build --no-bundle"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
